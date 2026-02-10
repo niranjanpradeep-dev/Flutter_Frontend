@@ -49,7 +49,7 @@ class _UserProfileState extends State<UserProfile> {
         final data = jsonDecode(response.body);
         setState(() {
           // Parse data from server
-          username = data['username'] ?? "Unknown";
+          username = data['first_name'] + " " + data['last_name'] ?? "Unknown";
           email = data['email'] ?? "No email"; // Get email from response
           bio = data['bio'] ?? "No bio yet.";
           postCount = data['post_count'].toString();
