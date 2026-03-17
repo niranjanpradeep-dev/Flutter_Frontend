@@ -1,5 +1,6 @@
 import 'dart:math' as math; // Required for the rotation angle
 import 'package:flutter/material.dart';
+import 'package:flutter_app/routes.dart'; // Make sure this path matches your project
 
 void main() => runApp(const MyApp());
 
@@ -30,8 +31,29 @@ class HomeFeed extends StatelessWidget {
             floating: true,
             elevation: 0,
             backgroundColor: const Color(0xFFF8F9FA),
+
+            // PLUS BUTTON (LEFT)
+            leading: IconButton(
+              icon: const Icon(Icons.add, color: Colors.black),
+              onPressed: () {
+                // Using the named route we just set up in routes.dart!
+                Navigator.pushNamed(context, AppRoutes.post);
+              },
+            ),
+
             title: Image.asset('assets/logo.png', height: 120),
+
+            // NOTIFICATION BUTTON (RIGHT)
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none, color: Colors.black),
+                onPressed: () {
+                  // Notification action
+                },
+              ),
+            ],
           ),
+
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             sliver: SliverList(
@@ -89,7 +111,8 @@ class PostCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     child: Image.network(
                       'https://i.pravatar.cc/150?u=$username',
-                      errorBuilder: (context, error, stackTrace) => Text(username[0]),
+                      errorBuilder: (context, error, stackTrace) =>
+                          Text(username[0]),
                     ),
                   ),
                 ),
@@ -97,8 +120,11 @@ class PostCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const Text('2h ago', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    Text(username,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('2h ago',
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
                   ],
                 ),
                 const Spacer(),
@@ -118,17 +144,20 @@ class PostCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   image: const DecorationImage(
-                    image: NetworkImage('https://blog.rideally.com/wp-content/uploads/2022/05/Ooty.jpg'),
+                    image: NetworkImage(
+                        'https://blog.rideally.com/wp-content/uploads/2022/05/Ooty.jpg'),
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
+
               // Like Pill
               Positioned(
                 bottom: -15,
                 left: 28,
                 child: _buildLikeButton(),
               ),
+
               // Tilted Share Button
               Positioned(
                 bottom: -15,
@@ -146,15 +175,19 @@ class PostCard extends StatelessWidget {
               children: [
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(color: Colors.black, fontSize: 14, height: 1.4),
+                    style: const TextStyle(
+                        color: Colors.black, fontSize: 14, height: 1.4),
                     children: [
-                      TextSpan(text: '$username ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: '$username ',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: caption),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('View all 30 comments', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const Text('View all 30 comments',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),
@@ -169,14 +202,20 @@ class PostCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: const [
+          BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 4))
+        ],
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.favorite, color: Colors.pink, size: 18),
           SizedBox(width: 8),
-          Text("Like", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text("Like",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
     );
@@ -186,14 +225,19 @@ class PostCard extends StatelessWidget {
     return Container(
       height: 44,
       width: 44,
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 255, 255, 255),
+      decoration: const BoxDecoration(
+        color: Color.fromARGB(255, 255, 255, 255),
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 4))
+        ],
       ),
       child: Center(
         child: Transform.rotate(
-          angle: -math.pi / 6, // Tilts the icon toward the top-right
+          angle: -math.pi / 6,
           child: const Icon(
             Icons.send_rounded,
             color: Color.fromARGB(255, 0, 0, 0),

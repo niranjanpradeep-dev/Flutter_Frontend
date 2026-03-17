@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 // Import your tabs
-import 'tabs/feed.dart';
+import 'tabs/feed/feed.dart';
 import 'tabs/join/search.dart';
 import 'tabs/profile.dart';
 import 'tabs/groups/group_list.dart'; // <--- Import the GroupList page

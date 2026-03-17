@@ -3,7 +3,8 @@ import 'auth/signup.dart';
 import 'auth/login.dart';
 import 'home/dashboard_screen.dart';
 import 'success.dart';
-import 'home/tabs/feed.dart';
+import 'home/tabs/feed/feed.dart';
+import 'home/tabs/feed/post.dart';
 import 'home/tabs/join/search.dart';
 import 'home/tabs/join/trip_join.dart';
 import 'home/tabs/join/join_verification.dart';
@@ -20,6 +21,7 @@ class AppRoutes {
   static const String login            = '/login';
   static const String home             = '/home';
   static const String feed             = '/feed';
+  static const String post             = '/post'; // Added post route constant
   static const String search           = '/search';
   static const String tripJoin         = '/trip-join';
   static const String joinVerification = '/join-verification';
@@ -38,7 +40,8 @@ class AppRoutes {
     signup:           (context) => const SignupPage(),
     login:            (context) => const LoginPage(),
     home:             (context) => const DashboardScreen(),
-    feed:             (context) => const HomeFeed(),
+    feed:             (context) => const HomeFeed(), 
+    post:             (context) => const PostPage(), // Added mapping (Ensure 'PostPage' matches your class name in post.dart)
     search:           (context) => const SearchGrid(),
     tripJoin:         (context) => const TripJoinPage(),
     joinVerification: (context) => const JoinVerificationPage(),
