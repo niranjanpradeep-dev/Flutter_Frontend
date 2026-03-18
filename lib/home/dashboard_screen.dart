@@ -1,14 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-// Import your tabs
 import 'tabs/feed/feed.dart';
 import 'tabs/join/search.dart';
-import 'tabs/profile.dart';
-import 'tabs/groups/group_list.dart'; // <--- Import the GroupList page
-
-// Import the Trip Details page (for the + button)
-import 'tabs/trip/trip_details.dart'; 
+import 'tabs/profile.dart';          // UserProfile lives here
+import 'tabs/groups/group_list.dart';
+import 'tabs/trip/trip_details.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,24 +18,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    HomeFeed(),                  // 0: Home
-    SearchGrid(),                // 1: Explore
-    SizedBox(),                  // 2: Placeholder for the (+) button logic
-    GroupListPage(),             // 3: Journey (Replaced Placeholder)
-    UserProfile(),               // 4: Profile
+    HomeFeed(),       // 0: Home
+    SearchGrid(),     // 1: Explore
+    SizedBox(),       // 2: Placeholder for the (+) FAB — never actually shown
+    GroupListPage(),  // 3: Journey
+    UserProfile(),    // 4: Profile
   ];
 
   void _onItemTapped(int index) {
-    // If the middle "+" button is tapped
     if (index == 2) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TripDetailsPage()),
       );
-      return; // Stop here so we don't switch the tab index
+      return;
     }
-    
-    // Otherwise, switch the tab
     setState(() => _selectedIndex = index);
   }
 
@@ -100,7 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   height: 48,
                   width: 48,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFFC107), // Your Theme Yellow
+                    color: Color(0xFFFFC107),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

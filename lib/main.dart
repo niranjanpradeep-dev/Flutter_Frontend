@@ -5,6 +5,8 @@ import 'routes.dart';
 import 'theme/app_theme.dart';
 import 'home/profile/other_profile.dart';
 import 'home/tabs/groups/group_details.dart';
+import 'otp/otp_verify.dart';
+import 'otp/otp_show.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,23 +42,68 @@ class MyApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         // ── Other user profile ───────────────────────────────────────────
         if (settings.name == AppRoutes.otherProfile) {
-          final args = settings.arguments as Map<String, dynamic>;
+          final args = (settings.arguments as Map?)?.cast<String, dynamic>() ?? {};
+          final userId = args['user_id'] is int
+              ? args['user_id'] as int
+              : int.tryParse(args['user_id']?.toString() ?? '') ?? 0;
+          final userName = args['user_name']?.toString() ?? 'User';
+
           return MaterialPageRoute(
             builder: (_) => OtherUserProfilePage(
-              userId:   args['user_id']   as int,
-              userName: args['user_name'] as String,
+              userId:   userId,
+              userName: userName,
             ),
           );
         }
 
         // ── Group details ────────────────────────────────────────────────
         if (settings.name == AppRoutes.groupDetails) {
-          final args = settings.arguments as Map<String, dynamic>;
+          final args = (settings.arguments as Map?)?.cast<String, dynamic>() ?? {};
+          final groupId = args['group_id'] is int
+              ? args['group_id'] as int
+              : int.tryParse(args['group_id']?.toString() ?? '') ?? 0;
+          final adminId = args['admin_id'] is int
+              ? args['admin_id'] as int
+              : int.tryParse(args['admin_id']?.toString() ?? '') ?? 0;
+          final groupName = args['group_name']?.toString() ?? 'Group';
+
           return MaterialPageRoute(
             builder: (_) => GroupDetailsPage(
-              groupId:   args['group_id']   as int,
-              groupName: args['group_name'] as String,
-              adminId:   args['admin_id']   as int,
+              groupId:   groupId,
+              groupName: groupName,
+              adminId:   adminId,
+            ),
+          );
+        }
+
+        // ── OTP Verify (admin boarding page) ────────────────────────────
+        if (settings.name == AppRoutes.otpVerify) {
+          final args = (settings.arguments as Map?)?.cast<String, dynamic>() ?? {};
+          final tripId = args['trip_id'] is int
+              ? args['trip_id'] as int
+              : int.tryParse(args['trip_id']?.toString() ?? '') ?? 0;
+          final tripName = args['trip_name']?.toString() ?? 'Trip';
+
+          return MaterialPageRoute(
+            builder: (_) => OtpVerifyPage(
+              tripId:   tripId,
+              tripName: tripName,
+            ),
+          );
+        }
+
+        // ── OTP Show (member boarding page) ─────────────────────────────
+        if (settings.name == AppRoutes.otpShow) {
+          final args = (settings.arguments as Map?)?.cast<String, dynamic>() ?? {};
+          final tripId = args['trip_id'] is int
+              ? args['trip_id'] as int
+              : int.tryParse(args['trip_id']?.toString() ?? '') ?? 0;
+          final tripName = args['trip_name']?.toString() ?? 'Trip';
+
+          return MaterialPageRoute(
+            builder: (_) => OtpShowPage(
+              tripId:   tripId,
+              tripName: tripName,
             ),
           );
         }

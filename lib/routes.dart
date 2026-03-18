@@ -9,7 +9,7 @@ import 'home/tabs/join/search.dart';
 import 'home/tabs/join/trip_join.dart';
 import 'home/tabs/join/join_verification.dart';
 import 'home/tabs/join/join_payment.dart';
-import 'home/tabs/profile.dart';
+import 'home/tabs/profile.dart'; // ← correct path and class (UserProfile)
 import 'home/tabs/trip/trip_details.dart';
 import 'home/tabs/trip/route_details.dart';
 import 'home/tabs/trip/payment_details.dart';
@@ -21,7 +21,7 @@ class AppRoutes {
   static const String login            = '/login';
   static const String home             = '/home';
   static const String feed             = '/feed';
-  static const String post             = '/post'; // Added post route constant
+  static const String post             = '/post';
   static const String search           = '/search';
   static const String tripJoin         = '/trip-join';
   static const String joinVerification = '/join-verification';
@@ -35,13 +35,15 @@ class AppRoutes {
   static const String contactDetails   = '/contact-details';
   static const String groupChat        = '/group-chat';
   static const String groupDetails     = '/group-details';
+  static const String otpVerify        = '/otp-verify';
+  static const String otpShow          = '/otp-show';
 
   static Map<String, WidgetBuilder> routes = {
     signup:           (context) => const SignupPage(),
     login:            (context) => const LoginPage(),
     home:             (context) => const DashboardScreen(),
-    feed:             (context) => const HomeFeed(), 
-    post:             (context) => const PostPage(), // Added mapping (Ensure 'PostPage' matches your class name in post.dart)
+    feed:             (context) => const HomeFeed(),
+    post:             (context) => const PostPage(),
     search:           (context) => const SearchGrid(),
     tripJoin:         (context) => const TripJoinPage(),
     joinVerification: (context) => const JoinVerificationPage(),
@@ -53,5 +55,7 @@ class AppRoutes {
     paymentDetails:   (context) => const PaymentDetailsPage(),
     contactDetails:   (context) => const ContactDetailsPage(),
     groupChat:        (context) => const GroupPage(),
+    // otherProfile, groupDetails, otpVerify, otpShow → handled via onGenerateRoute
+    // in main.dart because they require safely parsed arguments
   };
 }

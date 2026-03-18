@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class EditProfilePage extends StatefulWidget {
-  final String username;
-  final String currentBio;
+  final String  username;
+  final String  currentBio;
   final String? currentProfilePicture;
 
   const EditProfilePage({
@@ -20,48 +20,46 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _bioController;
-  File? _selectedImage;
+  // Moved here from build() to prevent a new controller (and memory leak)
+  // being created on every rebuild
+  late TextEditingController _usernameController;
+
+  File?             _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill the text box with the user's current bio
-    _bioController = TextEditingController(text: widget.currentBio);
+    _bioController      = TextEditingController(text: widget.currentBio);
+    _usernameController = TextEditingController(text: widget.username);
   }
 
   @override
   void dispose() {
     _bioController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
     try {
       final XFile? pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80, // Compress slightly for faster uploads
+        source:       ImageSource.gallery,
+        imageQuality: 80,
       );
-      
       if (pickedFile != null) {
-        setState(() {
-          _selectedImage = File(pickedFile.path);
-        });
+        setState(() => _selectedImage = File(pickedFile.path));
       }
     } catch (e) {
-      debugPrint("Error picking image: $e");
+      debugPrint('Error picking image: $e');
     }
   }
 
   void _saveProfile() {
-    // Bundle the new bio and the newly selected image (if any)
-    // and send them back to the previous screen!
-    final result = {
-      "bio": _bioController.text.trim(),
-      "image": _selectedImage,
-    };
-    
-    Navigator.pop(context, result);
+    Navigator.pop(context, {
+      'bio':   _bioController.text.trim(),
+      'image': _selectedImage,
+    });
   }
 
   @override
@@ -79,10 +77,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: Colors.grey[200],
-          ),
+          child: Container(height: 1, color: Colors.grey[200]),
         ),
       ),
       body: SingleChildScrollView(
@@ -91,8 +86,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
-            
-            // ── PROFILE PICTURE PICKER ──
+
+            // ── Profile picture picker ────────────────────────────────
             Center(
               child: GestureDetector(
                 onTap: _pickImage,
@@ -101,20 +96,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                        border: Border.all(
+                            color: Colors.grey.shade300, width: 2),
                       ),
                       child: CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.grey[100],
-                        // Show newly picked image, OR existing network image, OR placeholder
                         backgroundImage: _selectedImage != null
                             ? FileImage(_selectedImage!) as ImageProvider
-                            : (widget.currentProfilePicture != null && widget.currentProfilePicture!.isNotEmpty
-                                ? NetworkImage(widget.currentProfilePicture!)
+                            : (widget.currentProfilePicture != null &&
+                                    widget.currentProfilePicture!.isNotEmpty
+                                ? NetworkImage(
+                                    widget.currentProfilePicture!)
                                 : null),
-                        child: _selectedImage == null && 
-                               (widget.currentProfilePicture == null || widget.currentProfilePicture!.isEmpty)
-                            ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                        child: _selectedImage == null &&
+                                (widget.currentProfilePicture == null ||
+                                    widget.currentProfilePicture!.isEmpty)
+                            ? const Icon(Icons.person,
+                                size: 60, color: Colors.grey)
                             : null,
                       ),
                     ),
@@ -126,38 +125,36 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         decoration: BoxDecoration(
                           color: Colors.black,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
+                          border:
+                              Border.all(color: Colors.white, width: 3),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.camera_alt,
+                            color: Colors.white, size: 20),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
-            // ── USERNAME (Read Only) ──
+
+            // ── Username (read-only) ──────────────────────────────────
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Name',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700]),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: TextEditingController(text: widget.username),
-              readOnly: true, // We aren't allowing name changes here currently
+              // Uses the controller created in initState — no leak
+              controller: _usernameController,
+              readOnly: true,
               style: const TextStyle(color: Colors.grey),
               decoration: InputDecoration(
                 filled: true,
@@ -168,26 +165,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
-            // ── BIO INPUT ──
+
+            // ── Bio input ─────────────────────────────────────────────
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Bio',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700]),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _bioController,
-              maxLines: 4,
-              maxLength: 150,
+              maxLines:   4,
+              maxLength:  150,
               decoration: InputDecoration(
                 hintText: 'Tell us a little about yourself...',
                 hintStyle: TextStyle(color: Colors.grey[400]),
@@ -199,14 +195,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.black, width: 1.5),
+                  borderSide: const BorderSide(
+                      color: Colors.black, width: 1.5),
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
-            // ── SAVE BUTTON ──
+
+            // ── Save button ───────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -217,15 +214,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                      borderRadius: BorderRadius.circular(16)),
                 ),
                 child: const Text(
                   'Save Changes',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

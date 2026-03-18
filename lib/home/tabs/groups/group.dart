@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../../config/config.dart';
@@ -31,6 +31,9 @@ class _GroupPageState extends State<GroupPage> {
   bool   _isLoadingUser  = true;
   bool   _isUploading    = false;
 
+  // Guard so didChangeDependencies only initialises once
+  bool _initialized = false;
+
   final TextEditingController _messageController = TextEditingController();
   final ScrollController      _scrollController  = ScrollController();
 
@@ -46,6 +49,12 @@ class _GroupPageState extends State<GroupPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Only run setup once — prevents re-subscription every time a child
+    // route pops back to this page (e.g. returning from GroupDetailsPage).
+    if (_initialized) return;
+    _initialized = true;
+
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       final rawId    = args['group_id'] ?? args['groupId'] ?? args['id'];
@@ -114,16 +123,14 @@ class _GroupPageState extends State<GroupPage> {
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    var id = prefs.get('user_id');
-    int finalId = 0;
-    if (id is int)         finalId = id;
-    else if (id is String) finalId = int.tryParse(id) ?? 0;
+    // Use getInt directly since we always store with setInt
+    final id = prefs.getInt('user_id') ?? 0;
 
-    if (finalId == 0) {
+    if (id == 0) {
       await _fetchProfileFromBackend(prefs);
     } else {
       setState(() {
-        currentUserId   = finalId;
+        currentUserId   = id;
         currentUserName = prefs.getString('first_name') ?? 'User';
         _isLoadingUser  = false;
       });
@@ -133,7 +140,10 @@ class _GroupPageState extends State<GroupPage> {
   Future<void> _fetchProfileFromBackend(SharedPreferences prefs) async {
     try {
       final token = prefs.getString('auth_token');
-      if (token == null) { setState(() => _isLoadingUser = false); return; }
+      if (token == null) {
+        setState(() => _isLoadingUser = false);
+        return;
+      }
 
       final response = await http.get(
         Uri.parse('${AppConfig.baseUrl}/api/profile/'),
@@ -156,6 +166,7 @@ class _GroupPageState extends State<GroupPage> {
         setState(() => _isLoadingUser = false);
       }
     } catch (e) {
+      debugPrint('Profile fetch error: $e');
       setState(() => _isLoadingUser = false);
     }
   }
@@ -172,8 +183,11 @@ class _GroupPageState extends State<GroupPage> {
     if (groupId.isEmpty) return;
     if (currentUserId == 0) {
       await _loadUserInfo();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Identifying user... try again.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Identifying user... try again.')),
+        );
+      }
       return;
     }
     try {
@@ -188,8 +202,11 @@ class _GroupPageState extends State<GroupPage> {
       _messageController.clear();
     } catch (e) {
       debugPrint('Send message error: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send: $e')),
+        );
+      }
     }
   }
 
@@ -201,14 +218,22 @@ class _GroupPageState extends State<GroupPage> {
 
     try {
       if (type == 'image') {
-        final picked = await ImagePicker().pickImage(
-            source: ImageSource.gallery, imageQuality: 70);
-        if (picked != null) { file = File(picked.path); originalName = picked.name; }
+        final picked = await ImagePicker()
+            .pickImage(source: ImageSource.gallery, imageQuality: 70);
+        if (picked != null) {
+          file = File(picked.path);
+          originalName = picked.name;
+        }
       } else if (type == 'video') {
-        final picked = await ImagePicker().pickVideo(source: ImageSource.gallery);
-        if (picked != null) { file = File(picked.path); originalName = picked.name; }
+        final picked =
+            await ImagePicker().pickVideo(source: ImageSource.gallery);
+        if (picked != null) {
+          file = File(picked.path);
+          originalName = picked.name;
+        }
       } else if (type == 'audio') {
-        final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+        final result =
+            await FilePicker.platform.pickFiles(type: FileType.audio);
         if (result != null) {
           file = File(result.files.single.path!);
           originalName = result.files.single.name;
@@ -228,21 +253,27 @@ class _GroupPageState extends State<GroupPage> {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path     = '$groupId/$type/$fileName';
 
-      await _supabase.storage
-          .from('chat-files')
-          .upload(path, file, fileOptions: const FileOptions(upsert: true));
+      await _supabase.storage.from('chat-files').upload(
+            path,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
-      final publicUrl = _supabase.storage.from('chat-files').getPublicUrl(path);
+      final publicUrl =
+          _supabase.storage.from('chat-files').getPublicUrl(path);
 
       await _sendMessage(
         type:    type,
         fileUrl: publicUrl,
-        text:    type == 'doc' || type == 'audio' ? originalName : null,
+        text:    (type == 'doc' || type == 'audio') ? originalName : null,
       );
     } catch (e) {
       debugPrint('Upload error: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -263,10 +294,14 @@ class _GroupPageState extends State<GroupPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildAttachIcon(Icons.image,            Colors.purple, 'Photo', () => _pickAndUpload('image')),
-            _buildAttachIcon(Icons.videocam,          Colors.pink,   'Video', () => _pickAndUpload('video')),
-            _buildAttachIcon(Icons.headphones,        Colors.orange, 'Audio', () => _pickAndUpload('audio')),
-            _buildAttachIcon(Icons.insert_drive_file, Colors.blue,   'File',  () => _pickAndUpload('doc')),
+            _buildAttachIcon(Icons.image,            Colors.purple, 'Photo',
+                () => _pickAndUpload('image')),
+            _buildAttachIcon(Icons.videocam,          Colors.pink,   'Video',
+                () => _pickAndUpload('video')),
+            _buildAttachIcon(Icons.headphones,        Colors.orange, 'Audio',
+                () => _pickAndUpload('audio')),
+            _buildAttachIcon(Icons.insert_drive_file, Colors.blue,   'File',
+                () => _pickAndUpload('doc')),
           ],
         ),
       ),
@@ -276,7 +311,10 @@ class _GroupPageState extends State<GroupPage> {
   Widget _buildAttachIcon(
       IconData icon, Color color, String label, VoidCallback onTap) {
     return GestureDetector(
-      onTap: () { Navigator.pop(context); onTap(); },
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -326,7 +364,9 @@ class _GroupPageState extends State<GroupPage> {
         title: Text(
           groupName,
           style: const TextStyle(
-              color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold),
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
@@ -351,8 +391,9 @@ class _GroupPageState extends State<GroupPage> {
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(20)),
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           child: const Text('Start the conversation!',
                               style: TextStyle(color: Colors.grey)),
                         ),
@@ -364,10 +405,10 @@ class _GroupPageState extends State<GroupPage> {
                             horizontal: 16, vertical: 20),
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
-                          final msg      = _messages[index];
-                          final isMe     = msg['sender_id'].toString() ==
+                          final msg     = _messages[index];
+                          final isMe    = msg['sender_id'].toString() ==
                               currentUserId.toString();
-                          final isAdmin  = msg['sender_id'].toString() ==
+                          final isAdmin = msg['sender_id'].toString() ==
                               adminId.toString();
                           final senderId =
                               int.tryParse(msg['sender_id'].toString()) ?? 0;
@@ -388,16 +429,16 @@ class _GroupPageState extends State<GroupPage> {
                       ),
           ),
 
-          // Input bar
+          // ── Input bar ────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                    color:  Colors.black.withOpacity(0.05),
+                    color:      Colors.black.withOpacity(0.05),
                     blurRadius: 5,
-                    offset: const Offset(0, -2))
+                    offset:     const Offset(0, -2)),
               ],
             ),
             child: SafeArea(
@@ -413,8 +454,9 @@ class _GroupPageState extends State<GroupPage> {
                       padding:
                           const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(30)),
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                       child: TextField(
                         controller: _messageController,
                         decoration: const InputDecoration(
@@ -432,8 +474,7 @@ class _GroupPageState extends State<GroupPage> {
                     child: CircleAvatar(
                       backgroundColor: Colors.black,
                       radius: 22,
-                      child: Icon(Icons.send,
-                          color: _themeYellow, size: 20),
+                      child: Icon(Icons.send, color: _themeYellow, size: 20),
                     ),
                   ),
                 ],
@@ -498,7 +539,7 @@ class MessageBubble extends StatelessWidget {
           crossAxisAlignment:
               isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Sender name — tappable to open profile
+            // Sender name — tappable to open other profile
             Padding(
               padding:
                   const EdgeInsets.only(bottom: 4, left: 4, right: 4),
@@ -566,9 +607,9 @@ class MessageBubble extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                      color:     Colors.black.withOpacity(0.05),
+                      color:      Colors.black.withOpacity(0.05),
                       blurRadius: 4,
-                      offset:    const Offset(0, 2))
+                      offset:     const Offset(0, 2)),
                 ],
               ),
               child: Column(
@@ -588,9 +629,9 @@ class MessageBubble extends StatelessWidget {
                     child: Text(
                       _timeStr,
                       style: TextStyle(
-                          fontSize:    10,
-                          color:       Colors.black.withOpacity(0.5),
-                          fontStyle:   FontStyle.italic),
+                          fontSize:  10,
+                          color:     Colors.black.withOpacity(0.5),
+                          fontStyle: FontStyle.italic),
                     ),
                   ),
                 ],
@@ -617,8 +658,7 @@ class MessageBubble extends StatelessWidget {
                   width:  200,
                   color:  Colors.white54,
                   child: const Center(
-                      child:
-                          CircularProgressIndicator(strokeWidth: 2))),
+                      child: CircularProgressIndicator(strokeWidth: 2))),
           errorBuilder: (_, __, ___) =>
               const Icon(Icons.broken_image),
         ),
@@ -636,8 +676,7 @@ class MessageBubble extends StatelessWidget {
           children: [
             Icon(Icons.play_circle_fill, color: Colors.black, size: 30),
             SizedBox(width: 8),
-            Text('Video',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Video', style: TextStyle(fontWeight: FontWeight.bold)),
             SizedBox(width: 8),
             Icon(Icons.open_in_new, size: 16),
           ],
@@ -663,6 +702,7 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
+    // Generic file
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -674,8 +714,7 @@ class MessageBubble extends StatelessWidget {
           const Icon(Icons.attach_file, color: Colors.black),
           const SizedBox(width: 8),
           Text(type.toUpperCase(),
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold)),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );

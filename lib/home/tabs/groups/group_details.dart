@@ -22,9 +22,9 @@ class GroupDetailsPage extends StatefulWidget {
 }
 
 class _GroupDetailsPageState extends State<GroupDetailsPage> {
-  bool   _isLoading     = true;
-  bool   _isSaving      = false;
-  bool   _isEditing     = false;
+  bool   _isLoading  = true;
+  bool   _isSaving   = false;
+  bool   _isEditing  = false;
 
   String _groupName     = '';
   int    _adminId       = 0;
@@ -56,9 +56,31 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
-    final id    = prefs.get('user_id');
-    if (id is int)         setState(() => _currentUserId = id);
-    else if (id is String) setState(() => _currentUserId = int.tryParse(id) ?? 0);
+    // Use getInt directly — group.dart always saves with setInt
+    final id = prefs.getInt('user_id') ?? 0;
+    if (id != 0) {
+      setState(() => _currentUserId = id);
+    } else {
+      // Fallback: fetch from backend if not cached yet
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+      try {
+        final response = await http.get(
+          Uri.parse('${AppConfig.baseUrl}/api/profile/'),
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': 'Token $token',
+          },
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          await prefs.setInt('user_id', data['id'] as int);
+          if (mounted) setState(() => _currentUserId = data['id'] as int);
+        }
+      } catch (e) {
+        debugPrint('Error loading user: $e');
+      }
+    }
   }
 
   Future<void> _loadGroupDetails() async {
@@ -93,13 +115,17 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
   Future<void> _saveGroupName() async {
     final newName = _nameController.text.trim();
-    if (newName.isEmpty) { _showSnack('Group name cannot be empty'); return; }
+    if (newName.isEmpty) {
+      _showSnack('Group name cannot be empty');
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
       final token    = await _getToken();
       final response = await http.patch(
-        Uri.parse('${AppConfig.baseUrl}/api/groups/${widget.groupId}/rename/'),
+        Uri.parse(
+            '${AppConfig.baseUrl}/api/groups/${widget.groupId}/rename/'),
         headers: {
           'Content-Type':  'application/json',
           'Authorization': 'Token $token',
@@ -146,17 +172,18 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isAdmin = _currentUserId == _adminId;
+    final bool isAdmin = _currentUserId != 0 && _currentUserId == _adminId;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.black))
+            ? const Center(
+                child: CircularProgressIndicator(color: Colors.black))
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Header ────────────────────────────────────────────────
+                  // ── Header ────────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -164,17 +191,19 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                       children: [
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.arrow_back_ios, size: 20),
+                          child:
+                              const Icon(Icons.arrow_back_ios, size: 20),
                         ),
                         const SizedBox(width: 12),
                         const Text('Group Info',
                             style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold)),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
 
-                  // ── Group name card ───────────────────────────────────────
+                  // ── Group name card ───────────────────────────────────
                   Container(
                     margin: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
@@ -206,13 +235,16 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                                 },
                                 child: _isSaving
                                     ? const SizedBox(
-                                        height: 18, width: 18,
+                                        height: 18,
+                                        width: 18,
                                         child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                             color: Colors.black))
                                     : Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 4),
+                                        padding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 4),
                                         decoration: BoxDecoration(
                                           color: _isEditing
                                               ? Colors.black
@@ -259,7 +291,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                     ),
                   ),
 
-                  // ── Members header ────────────────────────────────────────
+                  // ── Members header ────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 8),
@@ -267,7 +299,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                       children: [
                         const Text('Members',
                             style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -288,7 +321,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                     ),
                   ),
 
-                  // ── Members list ──────────────────────────────────────────
+                  // ── Members list ──────────────────────────────────────
                   Expanded(
                     child: _members.isEmpty
                         ? const Center(
@@ -299,23 +332,28 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                                 horizontal: 12, vertical: 4),
                             itemCount: _members.length,
                             itemBuilder: (context, index) {
-                              final member       = _members[index];
-                              final memberId     = member['user_id'] as int;
-                              final name         = member['name'] as String? ?? 'Unknown';
-                              final isAdminMember = member['is_admin'] == true;
-                              final isMe         = memberId == _currentUserId;
+                              final member        = _members[index];
+                              final memberId      = member['user_id'] as int;
+                              final name          =
+                                  member['name'] as String? ?? 'Unknown';
+                              final isAdminMember =
+                                  member['is_admin'] == true;
+                              final isMe =
+                                  memberId == _currentUserId;
 
                               return Card(
                                 margin: const EdgeInsets.symmetric(
                                     vertical: 4, horizontal: 4),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14)),
+                                    borderRadius:
+                                        BorderRadius.circular(14)),
                                 elevation: 0,
                                 color: isMe
                                     ? const Color(0xFFFFF9C4)
                                     : const Color(0xFFF9F9F9),
                                 child: ListTile(
-                                  onTap: () => _openProfile(memberId, name),
+                                  onTap: () =>
+                                      _openProfile(memberId, name),
                                   leading: CircleAvatar(
                                     backgroundColor: isAdminMember
                                         ? Colors.black
@@ -336,13 +374,16 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                                     isMe ? '$name (You)' : name,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      decoration: TextDecoration.underline,
+                                      decoration:
+                                          TextDecoration.underline,
                                     ),
                                   ),
                                   trailing: isAdminMember
                                       ? Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
+                                          padding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 3),
                                           decoration: BoxDecoration(
                                             color: Colors.black,
                                             borderRadius:
