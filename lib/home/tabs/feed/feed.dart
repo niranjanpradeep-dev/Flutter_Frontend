@@ -18,13 +18,17 @@ class HomeFeed extends StatefulWidget {
 class _HomeFeedState extends State<HomeFeed> {
   final ScrollController _scrollController = ScrollController();
 
-  List<Map<String, dynamic>> _posts        = [];
-  int     _page          = 1;
-  bool    _hasMore       = true;
-  bool    _isLoading     = true;
-  bool    _isFetching    = false;
+  // ── Backpack animation key ──────────────────────────────────
+  final GlobalKey<_AnimatedBackpackIconState> _backpackKey =
+      GlobalKey<_AnimatedBackpackIconState>();
+
+  List<Map<String, dynamic>> _posts     = [];
+  int     _page        = 1;
+  bool    _hasMore     = true;
+  bool    _isLoading   = true;
+  bool    _isFetching  = false;
   String? _error;
-  int     _unreadCount   = 0;
+  int     _unreadCount = 0;
 
   @override
   void initState() {
@@ -107,13 +111,21 @@ class _HomeFeedState extends State<HomeFeed> {
       final token = prefs.getString('auth_token');
       if (token == null) return;
 
+      final prev = _unreadCount;
       final res = await http.get(
         Uri.parse('$_base/api/notifications/unread-count/'),
         headers: {'Authorization': 'Token $token'},
       );
       if (res.statusCode == 200 && mounted) {
-        final data = jsonDecode(res.body);
-        setState(() => _unreadCount = data['count'] ?? 0);
+        final data  = jsonDecode(res.body);
+        final count = data['count'] ?? 0;
+        setState(() => _unreadCount = count);
+        // Trigger backpack animation if new notifications arrived
+        if (count > prev) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _backpackKey.currentState?.triggerNotification();
+          });
+        }
       }
     } catch (_) {}
   }
@@ -138,7 +150,6 @@ class _HomeFeedState extends State<HomeFeed> {
 
   void _openNotifications() {
     Navigator.pushNamed(context, AppRoutes.notifications).then((_) {
-      // Refresh badge count when returning from notifications
       _fetchUnreadCount();
     });
   }
@@ -154,14 +165,12 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Widget _buildBody() {
-    // ── Initial loading ───────────────────────────────────────────────
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.black),
       );
     }
 
-    // ── Error with no posts ───────────────────────────────────────────
     if (_error != null && _posts.isEmpty) {
       return Center(
         child: Padding(
@@ -191,7 +200,6 @@ class _HomeFeedState extends State<HomeFeed> {
       );
     }
 
-    // ── Main feed with collapsing app bar ─────────────────────────────
     return RefreshIndicator(
       color:     Colors.black,
       onRefresh: _onRefresh,
@@ -200,49 +208,52 @@ class _HomeFeedState extends State<HomeFeed> {
         physics:    const AlwaysScrollableScrollPhysics(),
         slivers: [
 
-          // ── Collapsing App Bar ──────────────────────────────────────
+          // ── App Bar ─────────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight:            100,
-            collapsedHeight:           60,
-            pinned:                    true,
-            floating:                  false,
+            toolbarHeight:             56,
+            pinned:                    false,
+            floating:                  true,
+            snap:                      true,
             elevation:                 0,
             backgroundColor:           const Color(0xFFF8F9FA),
             automaticallyImplyLeading: false,
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: Container(
-                color:   const Color(0xFFF8F9FA),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add,
-                          color: Colors.black, size: 26),
-                      onPressed: () =>
-                          Navigator.pushNamed(context, AppRoutes.post),
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+
+                // ── Camera icon (create post) ───────────────────
+                IconButton(
+                  icon: const Icon(Icons.camera_alt_outlined,
+                      color: Colors.black, size: 26),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.post),
+                ),
+
+                // ── Logo centered ───────────────────────────────
+                Expanded(
+                  child: Center(
+                    child: Image.asset(
+                      'assets/logo.png',
+                      height: 130,
+                      fit: BoxFit.contain,
                     ),
-                    Expanded(
-                      child: Center(
-                        child: Image.asset(
-                          'assets/logo.png',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    // ── Bell with unread badge ──────────────────────
-                    Stack(
+                  ),
+                ),
+
+                // ── Animated backpack with unread badge ─────────
+                GestureDetector(
+                  onTap: _openNotifications,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Stack(
                       clipBehavior: Clip.none,
+                      alignment:   Alignment.center,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none,
-                              color: Colors.black, size: 26),
-                          onPressed: _openNotifications,
-                        ),
+                        _AnimatedBackpackIcon(key: _backpackKey),
                         if (_unreadCount > 0)
                           Positioned(
-                            top:   6,
-                            right: 6,
+                            top:   -4,
+                            right: -4,
                             child: Container(
                               padding: const EdgeInsets.all(3),
                               decoration: const BoxDecoration(
@@ -266,10 +277,11 @@ class _HomeFeedState extends State<HomeFeed> {
                           ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
+            titleSpacing: 0,
           ),
 
           // ── Empty state ─────────────────────────────────────────────
@@ -279,8 +291,7 @@ class _HomeFeedState extends State<HomeFeed> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.explore_outlined,
-                        size: 64, color: Colors.grey),
+                    Icon(Icons.explore_outlined, size: 64, color: Colors.grey),
                     SizedBox(height: 16),
                     Text('No posts yet',
                         style: TextStyle(
@@ -315,8 +326,8 @@ class _HomeFeedState extends State<HomeFeed> {
                         padding: EdgeInsets.all(24),
                         child: Center(
                           child: Text("You're all caught up! ✈️",
-                              style: TextStyle(
-                                  color: Colors.grey, fontSize: 13)),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 13)),
                         ),
                       );
                     }
@@ -336,4 +347,184 @@ class _HomeFeedState extends State<HomeFeed> {
       ),
     );
   }
+}
+
+// ── Animated Backpack Icon ────────────────────────────────────────────────────
+
+class _AnimatedBackpackIcon extends StatefulWidget {
+  const _AnimatedBackpackIcon({super.key});
+
+  @override
+  State<_AnimatedBackpackIcon> createState() => _AnimatedBackpackIconState();
+}
+
+class _AnimatedBackpackIconState extends State<_AnimatedBackpackIcon>
+    with TickerProviderStateMixin {
+
+  late final AnimationController _idleController;
+  late final AnimationController _notifController;
+  late final Animation<double>   _idleFloat;
+  late final Animation<double>   _shake;
+  late final Animation<double>   _bounce;
+  bool _isNotifying = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _idleController = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+
+    _idleFloat = Tween<double>(begin: 0.0, end: -3.0).animate(
+      CurvedAnimation(parent: _idleController, curve: Curves.easeInOut),
+    );
+
+    _notifController = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _shake = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0,   end: -0.20), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -0.20, end:  0.20), weight: 2),
+      TweenSequenceItem(tween: Tween(begin:  0.20, end: -0.15), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -0.15, end:  0.10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin:  0.10, end:  0.0),  weight: 1),
+    ]).animate(
+      CurvedAnimation(parent: _notifController, curve: Curves.easeInOut),
+    );
+
+    _bounce = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.00, end: 1.28), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 1.28, end: 0.88), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 0.88, end: 1.06), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 1.06, end: 1.00), weight: 1),
+    ]).animate(
+      CurvedAnimation(parent: _notifController, curve: Curves.easeOut),
+    );
+
+    _notifController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) setState(() => _isNotifying = false);
+        _notifController.reset();
+        _idleController.repeat(reverse: true);
+      }
+    });
+  }
+
+  void triggerNotification() {
+    if (!mounted || _isNotifying) return;
+    _idleController.stop();
+    setState(() => _isNotifying = true);
+    _notifController.forward(from: 0.0);
+  }
+
+  @override
+  void dispose() {
+    _idleController.dispose();
+    _notifController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_idleController, _notifController]),
+      builder: (context, _) {
+        final floatY = _isNotifying ? 0.0 : _idleFloat.value;
+        final rotate = _isNotifying ? _shake.value  : 0.0;
+        final scale  = _isNotifying ? _bounce.value : 1.0;
+
+        return Transform.translate(
+          offset: Offset(0, floatY),
+          child: Transform.rotate(
+            angle:     rotate,
+            alignment: Alignment.bottomCenter,
+            child: Transform.scale(
+              scale: scale,
+              child: SizedBox(
+                width:  26,
+                height: 26,
+                child:  CustomPaint(painter: _BackpackPainter()),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BackpackPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final strokePaint = Paint()
+      ..color       = Colors.black
+      ..style       = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap   = StrokeCap.round
+      ..strokeJoin  = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.fill;
+
+    // Body
+    canvas.drawRRect(
+      RRect.fromLTRBR(
+        w * 0.10, h * 0.30, w * 0.90, h * 0.88,
+        Radius.circular(w * 0.18),
+      ),
+      strokePaint,
+    );
+
+    // Strap arc
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.36, h * 0.30)
+        ..cubicTo(
+            w * 0.36, h * 0.10,
+            w * 0.64, h * 0.10,
+            w * 0.64, h * 0.30),
+      strokePaint,
+    );
+
+    // Strap base bar
+    canvas.drawLine(
+      Offset(w * 0.36, h * 0.30),
+      Offset(w * 0.64, h * 0.30),
+      strokePaint,
+    );
+
+    // Front pocket
+    canvas.drawRRect(
+      RRect.fromLTRBR(
+        w * 0.28, h * 0.54, w * 0.72, h * 0.78,
+        Radius.circular(w * 0.10),
+      ),
+      strokePaint,
+    );
+
+    // Zipper line
+    canvas.drawLine(
+      Offset(w * 0.35, h * 0.54),
+      Offset(w * 0.65, h * 0.54),
+      Paint()
+        ..color       = Colors.black
+        ..strokeWidth = 1.0
+        ..strokeCap   = StrokeCap.round,
+    );
+
+    // Zipper pull dot
+    canvas.drawCircle(
+        Offset(w * 0.50, h * 0.54), w * 0.04, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -39,8 +39,21 @@ android {
 
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
@@ -55,4 +68,5 @@ dependencies {
     
     // Core Firebase dependencies (BoM manages versions)
     implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
+    implementation("com.google.code.gson:gson:2.9.1")
 }
